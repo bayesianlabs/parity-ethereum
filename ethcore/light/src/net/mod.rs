@@ -842,8 +842,8 @@ impl LightProtocol {
 			return Err(Error::BadProtocolVersion);
 		}
 
-		if BRD_LIGHT_CLIENT_ONLY && io.peer_client_version(*peer) != BRD_LIGHT_CLIENT_IDENTIFIER {
-			trace!(target: "pip", "BRD only, not - {}", io.peer_client_version(*peer));
+		if BRD_LIGHT_CLIENT_ONLY && io.peer_client_version(peer) != BRD_LIGHT_CLIENT_IDENTIFIER {
+			trace!(target: "pip", "BRD only, not - {}", io.peer_client_version(peer));
 			return Err(Error::NoCredits)
 		}
 
