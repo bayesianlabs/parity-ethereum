@@ -790,11 +790,15 @@ impl LightProtocol {
 	fn begin_new_cost_period(&self, io: &IoContext) {
 		self.load_distribution.end_period(&*self.sample_store);
 
-		let new_params = Arc::new(FlowParams::from_request_times(
-			|kind| self.load_distribution.expected_time(kind),
-			self.config.load_share,
-			Duration::from_secs(self.config.max_stored_seconds),
-		));
+		let new_params = Arc::new(if BRD_LIGHT_CLIENT_ONLY && BRD_UNLIMITED_CREDITS {
+			FlowParams::free()
+		} else {
+			FlowParams::from_request_times(
+				|kind| self.load_distribution.expected_time(kind),
+				self.config.load_share,
+				Duration::from_secs(self.config.max_stored_seconds),
+			)
+		});
 		*self.flow_params.write() = new_params.clone();
 
 		let peers = self.peers.read();
