@@ -773,6 +773,15 @@ impl Host {
 								break;
 							}
 
+//                          This is too early.  We only mean to reject PIP clients.
+// 						    let info = self.info.read();
+//							if info.config.client_version != "BRD Light Client" {
+//								trace!(target: "network", "Inbound connection not allowed for client {:?}", info.config.client_version);
+//								s.disconnect(io, DisconnectReason::TooManyPeers);
+//								kill = true;
+//								break;
+//							}
+
 							ready_id = Some(id);
 
 							// Add it to the node table
