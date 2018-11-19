@@ -47,6 +47,9 @@ pub trait IoContext {
 
 	/// Whether given peer id is reserved peer
 	fn is_reserved_peer(&self, peer: PeerId) -> bool;
+
+	/// Get a peer's client_version
+	fn peer_client_version(&self, peer: PeerId) -> String;
 }
 
 impl<T> IoContext for T where T: ?Sized + NetworkContext {
@@ -82,6 +85,10 @@ impl<T> IoContext for T where T: ?Sized + NetworkContext {
 
 	fn is_reserved_peer(&self, peer: PeerId) -> bool {
 		NetworkContext::is_reserved_peer(self, peer)
+	}
+
+	fn peer_client_version(&self, peer: PeerId) -> String {
+		self.peer_client_version(peer)
 	}
 }
 

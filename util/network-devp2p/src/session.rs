@@ -474,6 +474,17 @@ impl Session {
 			trace!(target: "network", "Peer protocol version mismatch: {}", protocol);
 			return Err(self.disconnect(io, DisconnectReason::UselessPeer));
 		}
+
+//      This isn't effective - we are disconnecting on 'hello' - we'll a) exclude peers we need to
+//      sync from and b) if len() == 1 won't exclude 'parity --light-client' connects, which dominate.
+//		if BRD_LIGHT_CLIENT_ONLY
+//			&& self.info.capabilities.len() == 1 // 1 shared capability
+//			&& self.info.capabilities.iter().any(|c| c.protocol == BRD_LIGHT_CLIENT_PROTOCOL) // is 'pip'
+//			&& self.info.client_version != BRD_LIGHT_CLIENT_IDENTIFIER { // not a "BRD" client
+//			trace!(target: "network", "Peer ID mismatch: {}, {}", self.info.client_version, id);
+//			return Err(self.disconnect(io, DisconnectReason::TooManyPeers));
+//		}
+
 		self.compression = protocol >= MIN_COMPRESSION_PROTOCOL_VERSION;
 		self.send_ping(io)?;
 		self.had_hello = true;
