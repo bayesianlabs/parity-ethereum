@@ -84,6 +84,16 @@ pub const PROTOCOL_VERSIONS: &[(u8, u8)] = &[
 /// Max protocol version.
 pub const MAX_PROTOCOL_VERSION: u8 = 1;
 
+/// Only accept PIP connection from 'BRD Light Client' nodes
+const BRD_LIGHT_CLIENT_ONLY : bool = true;
+const BRD_LIGHT_CLIENT_IDENTIFIER : &str = "BRD Light Client";
+
+/// 'BRD Light Clients' are 'free'
+const BRD_UNLIMITED_CREDITS : bool = true;
+
+/// trace PIP-related RLP data
+const BRD_TRACE_RLP_DATA : bool = false;
+
 // packet ID definitions.
 mod packet {
 	// the status packet.
@@ -369,11 +379,15 @@ impl LightProtocol {
 		let genesis_hash = provider.chain_info().genesis_hash;
 		let sample_store = params.sample_store.unwrap_or_else(|| Box::new(NullStore));
 		let load_distribution = LoadDistribution::load(&*sample_store);
-		let flow_params = FlowParams::from_request_times(
-			|kind| load_distribution.expected_time(kind),
-			params.config.load_share,
-			Duration::from_secs(params.config.max_stored_seconds),
-		);
+		let flow_params : FlowParams = if BRD_LIGHT_CLIENT_ONLY && BRD_UNLIMITED_CREDITS {
+			FlowParams::free()
+		} else {
+			FlowParams::from_request_times(
+				|kind| load_distribution.expected_time(kind),
+				params.config.load_share,
+				Duration::from_secs(params.config.max_stored_seconds),
+			)
+		};
 
 		LightProtocol {
 			provider,
@@ -576,7 +590,11 @@ impl LightProtocol {
 	pub fn handle_packet(&self, io: &IoContext, peer: PeerId, packet_id: u8, data: &[u8]) {
 		let rlp = Rlp::new(data);
 
-		trace!(target: "pip", "Incoming packet {} from peer {}", packet_id, peer);
+		trace!(target: "pip", "Incoming packet {} from peer {} ", packet_id, peer);
+
+		if BRD_TRACE_RLP_DATA {
+			trace!(target: "pip", "Incoming rlp: {}", format!("{}", rlp));
+		}
 
 		// handle the packet
 		let res = match packet_id {
@@ -772,11 +790,15 @@ impl LightProtocol {
 	fn begin_new_cost_period(&self, io: &IoContext) {
 		self.load_distribution.end_period(&*self.sample_store);
 
-		let new_params = Arc::new(FlowParams::from_request_times(
-			|kind| self.load_distribution.expected_time(kind),
-			self.config.load_share,
-			Duration::from_secs(self.config.max_stored_seconds),
-		));
+		let new_params = Arc::new(if BRD_LIGHT_CLIENT_ONLY && BRD_UNLIMITED_CREDITS {
+			FlowParams::free()
+		} else {
+			FlowParams::from_request_times(
+				|kind| self.load_distribution.expected_time(kind),
+				self.config.load_share,
+				Duration::from_secs(self.config.max_stored_seconds),
+			)
+		});
 		*self.flow_params.write() = new_params.clone();
 
 		let peers = self.peers.read();
@@ -811,7 +833,7 @@ impl LightProtocol {
 
 		let (status, capabilities, flow_params) = status::parse_handshake(data)?;
 
-		trace!(target: "pip", "Connected peer with chain head {:?}", (status.head_hash, status.head_num));
+		trace!(target: "pip", "Connected peer with chain head {:?}", (status.head_hash, status.head_num, status.network_id));
 
 		if (status.network_id, status.genesis_hash) != (self.network_id, self.genesis_hash) {
 			trace!(target: "pip", "peer {} wrong network: network_id is {} vs our {}, gh is {} vs our {}",
@@ -822,6 +844,11 @@ impl LightProtocol {
 
 		if Some(status.protocol_version as u8) != io.protocol_version(peer) {
 			return Err(Error::BadProtocolVersion);
+		}
+
+		if BRD_LIGHT_CLIENT_ONLY && io.peer_client_version(peer) != BRD_LIGHT_CLIENT_IDENTIFIER {
+			trace!(target: "pip", "BRD only, not - {}", io.peer_client_version(peer));
+			return Err(Error::NoCredits)
 		}
 
 		let remote_flow = flow_params.map(|params| (params.create_credits(), params));
@@ -928,6 +955,10 @@ impl LightProtocol {
 		};
 		let mut peer = peer.lock();
 		let peer: &mut Peer = &mut *peer;
+
+		if BRD_TRACE_RLP_DATA {
+			trace!(target: "pip", "request rlp: {}", format!("{}", raw));
+		}
 
 		let req_id: u64 = raw.val_at(0)?;
 		let mut request_builder = Builder::default();
