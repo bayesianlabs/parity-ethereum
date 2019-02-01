@@ -653,7 +653,7 @@ impl LightProtocol {
 		trace!(target: "pip", "Incoming packet {} from peer {} ", packet_id, peer);
 
 		if BRD_TRACE_RLP_DATA {
-			trace!(target: "pip", "Incoming rlp: {}", format!("{}", rlp));
+			trace!(target: "pip", "Incoming rlp: {}", rlp);
 		}
 
 		// handle the packet
